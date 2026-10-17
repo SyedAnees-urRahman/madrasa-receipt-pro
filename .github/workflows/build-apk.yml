@@ -36,12 +36,21 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
           cat android/local.properties
 
-      - name: Patch old plugins (jcenter fix)
+      - name: Patch old plugins
         working-directory: ./extracted_app
         run: |
           flutter pub get
-          # Replace deprecated jcenter() with mavenCentral() in all plugin build.gradle files
+          # Fix 1: Replace deprecated jcenter() with mavenCentral()
           find $PUB_CACHE/hosted/pub.dev -name "build.gradle" -path "*/android/*" -exec sed -i 's/jcenter()/mavenCentral()/g' {} \; 2>/dev/null || true
+          # Fix 2: Add namespace to shared_storage plugin (required by AGP 8.x)
+          SS_FILE="$PUB_CACHE/hosted/pub.dev/shared_storage-0.8.1/android/build.gradle"
+          if [ -f "$SS_FILE" ]; then
+            if ! grep -q "namespace" "$SS_FILE"; then
+              sed -i '/^android {/a \    namespace = "com.example.shared_storage"' "$SS_FILE"
+              echo "namespace added to shared_storage"
+            fi
+          fi
+          # Fix 3: Ensure compileSdk is set for old plugins
           echo "Plugin patches applied"
 
       - name: Build APK
