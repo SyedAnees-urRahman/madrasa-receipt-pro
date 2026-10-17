@@ -42,28 +42,28 @@ jobs:
           flutter pub get
           # Fix 1: Replace deprecated jcenter() with mavenCentral()
           find $PUB_CACHE/hosted/pub.dev -name "build.gradle" -path "*/android/*" -exec sed -i 's/jcenter()/mavenCentral()/g' {} \; 2>/dev/null || true
-          # Fix 2: Add namespace to shared_storage plugin (required by AGP 8.x)
-          SS_FILE="$PUB_CACHE/hosted/pub.dev/shared_storage-0.8.1/android/build.gradle"
-          if [ -f "$SS_FILE" ]; then
-            if ! grep -q "namespace" "$SS_FILE"; then
-              sed -i '/^android {/a \    namespace = "com.example.shared_storage"' "$SS_FILE"
-              echo "namespace added to shared_storage"
+          # Fix 2: Namespace for shared_storage (AGP 8.x requires it, must match manifest package)
+          SS_DIR="$PUB_CACHE/hosted/pub.dev/shared_storage-0.8.1/android"
+          if [ -f "$SS_DIR/build.gradle" ]; then
+            if ! grep -q "namespace" "$SS_DIR/build.gradle"; then
+              sed -i '/^android {/a \    namespace = "io.alexrintt.sharedstorage"' "$SS_DIR/build.gradle"
             fi
           fi
-          # Fix 3: JVM target compatibility for shared_storage (javac vs kotlinc mismatch)
-          SS_FILE="$PUB_CACHE/hosted/pub.dev/shared_storage-0.8.1/android/build.gradle"
+          # Fix 3: Remove package attr from manifest (conflicts with namespace)
+          if [ -f "$SS_DIR/src/main/AndroidManifest.xml" ]; then
+            sed -i 's/ package="[^"]*"//' "$SS_DIR/src/main/AndroidManifest.xml"
+          fi
+          # Fix 4: JVM target compatibility for shared_storage
+          SS_FILE="$SS_DIR/build.gradle"
           if [ -f "$SS_FILE" ]; then
-            # Add compileOptions if missing
             if ! grep -q "sourceCompatibility" "$SS_FILE"; then
               sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }' "$SS_FILE"
             fi
-            # Add kotlinOptions jvmTarget if missing
-            if ! grep -q "jvmTarget" "$SS_FILE"; then
+            if ! grep -q 'jvmTarget' "$SS_FILE"; then
               sed -i '/^android {/a \    kotlinOptions {\n        jvmTarget = "17"\n    }' "$SS_FILE"
             fi
-            echo "JVM target patched for shared_storage"
           fi
-          echo "Plugin patches applied"
+          echo "All plugin patches applied"
 
       - name: Build APK
         working-directory: ./extracted_app
