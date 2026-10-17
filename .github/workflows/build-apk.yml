@@ -50,7 +50,19 @@ jobs:
               echo "namespace added to shared_storage"
             fi
           fi
-          # Fix 3: Ensure compileSdk is set for old plugins
+          # Fix 3: JVM target compatibility for shared_storage (javac vs kotlinc mismatch)
+          SS_FILE="$PUB_CACHE/hosted/pub.dev/shared_storage-0.8.1/android/build.gradle"
+          if [ -f "$SS_FILE" ]; then
+            # Add compileOptions if missing
+            if ! grep -q "sourceCompatibility" "$SS_FILE"; then
+              sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }' "$SS_FILE"
+            fi
+            # Add kotlinOptions jvmTarget if missing
+            if ! grep -q "jvmTarget" "$SS_FILE"; then
+              sed -i '/^android {/a \    kotlinOptions {\n        jvmTarget = "17"\n    }' "$SS_FILE"
+            fi
+            echo "JVM target patched for shared_storage"
+          fi
           echo "Plugin patches applied"
 
       - name: Build APK
