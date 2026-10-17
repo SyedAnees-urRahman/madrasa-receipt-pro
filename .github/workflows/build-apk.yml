@@ -36,10 +36,17 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
           cat android/local.properties
 
-      - name: Build APK
+      - name: Patch old plugins (jcenter fix)
         working-directory: ./extracted_app
         run: |
           flutter pub get
+          # Replace deprecated jcenter() with mavenCentral() in all plugin build.gradle files
+          find $PUB_CACHE/hosted/pub.dev -name "build.gradle" -path "*/android/*" -exec sed -i 's/jcenter()/mavenCentral()/g' {} \; 2>/dev/null || true
+          echo "Plugin patches applied"
+
+      - name: Build APK
+        working-directory: ./extracted_app
+        run: |
           flutter build apk --release
 
       - name: Upload APK
